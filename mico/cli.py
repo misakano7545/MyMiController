@@ -5,6 +5,8 @@ Usage:
     python -m mico backup OUT.bin       # read the full 1 MB flash
     python -m mico flash  IMAGE.bin     # erase+write+verify a <=1MB image
     python -m mico restore BACKUP.bin   # same as flash, kept for clarity
+    python -m mico unpack IMAGE.bin -o parts/   # split into buildable parts
+    python -m mico pack   parts/ -o IMAGE.bin   # rebuild from parts
     python -m mico reset                # reboot the gamepad
 """
 
@@ -12,11 +14,19 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import sys
 import time
 
 from .device import UBOOTDevice, DeviceNotFoundError
 from .image import FLASH_SIZE
+from .jlfs import (
+    IMAGE_SIZE,
+    JlfImage,
+    build_flash_image,
+    extract_parts,
+    extract_template,
+)
 
 
 def _progress_printer(prefix):
@@ -99,6 +109,50 @@ def cmd_flash(args):
     return 0
 
 
+def cmd_unpack(args):
+    with open(args.file, "rb") as fh:
+        raw = fh.read()
+    parts = extract_parts(raw)
+    template = extract_template(raw)
+    os.makedirs(args.out, exist_ok=True)
+
+    names = {"uboot": "uboot.boot", "isd_config": "isd_config.ini",
+             "app_bin": "app.bin", "cfg_tool": "cfg_tool.bin",
+             "tone": "tone.bin"}
+    for key, filename in names.items():
+        path = os.path.join(args.out, filename)
+        with open(path, "wb") as fh:
+            fh.write(parts[key])
+        print("  %-16s %7d bytes -> %s" % (filename, len(parts[key]), path))
+    print("镜像: %s" % args.file)
+    print("容器校验: %s" % (JlfImage(raw).verify() or "全部通过"))
+    return 0
+
+
+def cmd_pack(args):
+    def read(name):
+        with open(os.path.join(args.parts, name), "rb") as fh:
+            return fh.read()
+
+    image = build_flash_image(
+        uboot=read("uboot.boot"),
+        isd_config=read("isd_config.ini"),
+        app_bin=read("app.bin"),
+        cfg_tool=read("cfg_tool.bin"),
+        tone=read("tone.bin"),
+    )
+    faults = JlfImage(image).verify()
+    if faults:
+        for fault in faults:
+            print("校验失败: %s" % fault, file=sys.stderr)
+        return 3
+    with open(args.out, "wb") as fh:
+        fh.write(image)
+    print("已写出: %s (%d 字节)" % (args.out, len(image)))
+    print("SHA256: %s" % hashlib.sha256(image).hexdigest().upper())
+    return 0
+
+
 def cmd_reset(args):
     with _open(args) as dev:
         print("发送重启指令…")
@@ -128,6 +182,16 @@ def main(argv=None) -> int:
     p.add_argument("file", help="备份文件")
     p.add_argument("-y", "--yes", action="store_true", help="跳过确认")
     p.set_defaults(func=cmd_flash)
+
+    p = sub.add_parser("unpack", help="把镜像拆成可构建的零件")
+    p.add_argument("file", help="0x53000 镜像文件")
+    p.add_argument("-o", "--out", default="parts", help="输出目录")
+    p.set_defaults(func=cmd_unpack)
+
+    p = sub.add_parser("pack", help="从零件目录重建镜像")
+    p.add_argument("parts", help="零件目录（含 app.bin 等）")
+    p.add_argument("-o", "--out", default="firmware.bin", help="输出镜像")
+    p.set_defaults(func=cmd_pack)
 
     p = sub.add_parser("reset", help="让手柄退出刷写模式")
     p.set_defaults(func=cmd_reset)

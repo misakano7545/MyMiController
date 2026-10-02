@@ -14,6 +14,14 @@ from .crypto import (
     jl_rxgp_cipher,
 )
 from .device import UBOOTDevice, DeviceNotFoundError, FlashError
+from .jlfs import (
+    IMAGE_SIZE,
+    JlfEntry,
+    JlfImage,
+    build_flash_image,
+    extract_parts,
+    extract_template,
+)
 from .image import (
     FLASH_SIZE,
     BOOT_CODE_SIZE,
@@ -30,4 +38,6 @@ __all__ = [
     "UBOOTDevice", "DeviceNotFoundError", "FlashError",
     "FLASH_SIZE", "BOOT_CODE_SIZE", "DEVICE_RECORD_OFFSET",
     "build_full_image", "split_full_image",
+    "IMAGE_SIZE", "JlfEntry", "JlfImage",
+    "build_flash_image", "extract_parts", "extract_template",
 ]
