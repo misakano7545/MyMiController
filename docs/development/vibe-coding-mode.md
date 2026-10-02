@@ -57,8 +57,10 @@ python tools/build_firmware.py --patch patches/vibe-coding-mode.py \
    写进 6 个槽位（Enter 用法码 `0x28`），松开清 0；
 3. **报告发送**：键盘报告走报告 ID 1，需确认端点/间隔与现有手柄报告
    不冲突（可复用同一中断端点）；
-4. **模式开关**：建议用组合键（例如长按 `HOME + A`）在「手柄模式」与
-   「Vibe Coding 模式」间切换，不动出厂默认行为。
+4. **模式开关**：用 **Mode+B** 切到 Vibe Coding 模式（`HOME + B` 长按
+   约 3 秒）。官方固件只用 Mode+A / Mode+X / Mode+Y，Mode+B 是空档，
+   不影响其他模式；组合键解剖、插入点与 B 键位探针见
+   [mode-switch-logic.md](../reverse-engineering/mode-switch-logic.md)。
 
 定位建议：在 `decomp_all.c` 里搜 `0x21407` 附近的描述符引用、搜
 USB 报告组装函数（写端点 FIFO 的位置），以及按键位图（文档记录的

@@ -87,5 +87,6 @@ app.bin 偏移   = decompiled_address - 0x01E000C0
 
 - 闪存布局 / 加密 / CRC：[flash-layout.md](flash-layout.md)
 - 刷写模式逻辑：[boot-mode-logic.md](boot-mode-logic.md)
+- 模式组合键（Mode+A/X/Y）与 Mode+B 可行性：[mode-switch-logic.md](mode-switch-logic.md)
 - 二次开发指南：[../development/README.md](../development/README.md)
 - Vibe Coding Mode 路线图：[../development/vibe-coding-mode.md](../development/vibe-coding-mode.md)
