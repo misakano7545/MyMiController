@@ -136,20 +136,46 @@ python -m mico reset                 # 手柄重启回正常模式
 
 - 复现方法：[docs/reverse-engineering/README.md](docs/reverse-engineering/README.md)
 - 刷写模式逻辑分析：[docs/reverse-engineering/boot-mode-logic.md](docs/reverse-engineering/boot-mode-logic.md)
-- 已还原的关键发现：手柄固件内部有一个「长按 HOME+X+Y 进入 USB 刷写」的判定
-  （`FUN_01e01d94`，约 3 秒计时），以及闪存的完整布局。
+- **闪存布局 / 加密 / CRC**：[docs/reverse-engineering/flash-layout.md](docs/reverse-engineering/flash-layout.md)
+- 函数地址总表：`decompiled/functions.csv`（地址 / `app.bin` 偏移 / 大小）
+- 已还原的关键发现：
+  - 手柄固件内部有一个「长按 HOME+X+Y 进入 USB 刷写」的判定
+    （`FUN_01e01d94`，约 3 秒计时）；
+  - 固件容器为 JLFS：目录 + 加密载荷 + CRC 校验，**已可逐字节重建**；
+  - 固件内已内置**键盘 HID 描述符模板**（`app.bin` `0x21407`），
+    是做「按键映射成键盘」的现成基础。
 
 ---
 
-## 二次开发
+## 固件开发（本项目重点）
 
-想把按键映射成电脑的 Enter 键？想改灯光、加功能？入口如下：
+本仓库不只是刷回原厂固件——它是**给这支手柄加功能**的工作台。
+固件已拆成可编辑的「零件」放在 `firmware/parts/`，改完重新打包即可：
 
-1. 阅读 [docs/development/README.md](docs/development/README.md)（总览）；
-2. 改造 `firmware/G5605_boot_code.bin`（或反编译源码）；
-3. 用 `tools/build_image.py` 生成镜像；
-4. GUI 选「5. 刷入自选镜像」或 `python -m mico flash`；
-5. 不满意随时用备份还原。
+```
+decompiled/decomp_all.c   反编译源码（看逻辑）
+        ↓
+firmware/parts/app.bin    主程序（改这里）
+        ↓
+tools/build_firmware.py   构建（自动处理目录/加密/CRC）
+        ↓
+build/*.bin               可刷镜像 → GUI「5. 刷入自选镜像」
+```
+
+```bash
+# 校验零件：重建结果必须与出厂镜像逐字节一致
+python tools/build_firmware.py --verify-only
+
+# 应用补丁并构建（补丁=一个 Python 文件，示例见 patches/）
+python tools/build_firmware.py --patch patches/vibe-coding-mode.py \
+    --out build/vibe.bin --full --record firmware/G5605_device_record.bin
+```
+
+- 构建器保证：**不修改时重建 == 出厂镜像**（SHA256 校验，CI 每次验证）；
+- 改动任意零件、长度变化都能自动重算目录、加密与 CRC；
+- 路线图（把按键映射成 Enter 等）：
+  [docs/development/vibe-coding-mode.md](docs/development/vibe-coding-mode.md)
+- 开发总览：[docs/development/README.md](docs/development/README.md)
 
 固件容器（`jl_isd.fw` / `update.ufw`）的解析与解包见 `tools/unpack_fw.py`。
 

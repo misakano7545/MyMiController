@@ -6,17 +6,49 @@
 ## 总览：从代码到上手
 
 ```
-反编译源码 (decompiled/decomp_all.c)
+反编译源码 (decompiled/decomp_all.c) + 函数表 (decompiled/functions.csv)
         │  分析、定位要改的逻辑
         ▼
-固件代码区 (firmware/G5605_boot_code.bin)   ← 直接对二进制打补丁
-        │  tools/build_image.py 生成镜像
+应用代码 (firmware/parts/app.bin)          ← 补丁/替换；容器细节全自动
+        │  python tools/build_firmware.py（或 python -m mico pack）
         ▼
-刷写镜像 (firmware/*.bin)
+刷写镜像 (build/*.bin，0x53000 字节)
         │  GUI「5. 刷入自选镜像」或 python -m mico flash
         ▼
 手柄实机验证 → 不行就「4. 恢复备份」
 ```
+
+> 出厂镜像已在仓库里拆成「零件」放在 `firmware/parts/`：改固件就是
+> 改这些零件再重新打包，不用手工处理目录、加密和 CRC。
+> 不修改时打包结果与出厂镜像**逐字节一致**，CI 每次都会验证。
+
+## 构建流水线（推荐入口）
+
+```bash
+# 1) 校验零件（重建 == 出厂镜像）
+python tools/build_firmware.py --verify-only
+
+# 2) 应用补丁并构建（补丁=一个 Python 文件，见 patches/）
+python tools/build_firmware.py --patch patches/example-hello.py \
+    --out build/my-firmware.bin
+
+# 3) 需要整机镜像（带自己的设备记录）时
+python tools/build_firmware.py --patch patches/example-hello.py \
+    --out build/my-firmware.bin --full --record my_backup.bin
+```
+
+补丁文件长这样：
+
+```python
+def patch(ctx):
+    ctx.app[0x1234] = 0x01          # 改 app.bin 的字节
+    ctx.app[0x2000:0x2008] = b"..."  # 或写一段字符串
+    ctx.note("说明这次改了什么")
+```
+
+`ctx` 同时提供 `uboot` / `isd_config` / `app` / `cfg_tool` / `tone`
+五个可改零件；长度变了也没关系，构建器会自动挪动后续内容并重算所有
+CRC（`app_area_head` 的校验覆盖整个应用区）。
 
 ## 0. 环境
 
@@ -45,13 +77,21 @@
 
 适合改**常量、表、跳转**这类小改动：
 
-1. 在 `decomp_all.c` 中定位目标函数（搜 `FUN_01e...` 或常量）；
-2. 用换算公式找到闪存偏移，在 HxD/ImHex 中对照修改；
-3. 用 `tools/build_image.py` 重新打包成镜像；
-4. 刷入测试。
+1. 在 `decomp_all.c` 中定位目标函数（搜 `FUN_01e...` 或常量），
+   或在 `decompiled/functions.csv` 里按地址查；
+2. 用换算公式求出 `app.bin` 偏移
+   （`app_off = addr - 0x01E000C0`，见
+   [../reverse-engineering/flash-layout.md](../reverse-engineering/flash-layout.md)）；
+3. 写一个补丁脚本改 `ctx.app`；
+4. 用 `tools/build_firmware.py --patch ...` 构建、刷入测试。
 
 示例：想把「进刷写模式需要 3 秒」改成别的时长，就找
-`docs/reverse-engineering/boot-mode-logic.md` 里 `0x84` 那个比较常量。
+`docs/reverse-engineering/boot-mode-logic.md` 里 `0x84` 那个比较常量，
+写一个对应的补丁脚本。
+
+现成例子见 `patches/`：
+- `example-hello.py` —— 最小改动演示（改一段日志字符串）；
+- `vibe-coding-mode.py` —— Vibe Coding Mode 阶段一（产品名/日志可识别）。
 
 ### 方式 B：可重定位代码（patch 空间注入）
 
@@ -75,18 +115,25 @@
 ## 3. 打包镜像
 
 ```bash
-# 用你自己的设备记录（推荐）
+# 方式一（推荐）：开发构建器，自动处理容器与 CRC
+python tools/build_firmware.py --patch my_patch.py --out my_image.bin
+
+# 方式二：拆包 / 打包
+python -m mico unpack firmware/G5605_boot_code.bin -o parts/
+#   改 parts/app.bin ...
+python -m mico pack parts/ -o my_image.bin
+
+# 方式三：旧式手工镜像（仅做记录保留/完整性检查）
 python tools/build_image.py --flash-bin patched_flash.bin \
     --backup my_backup.bin --out my_image.bin
-
-# 快速打包（使用仓库内置设备记录，会覆盖 PID 槽）
-python tools/build_image.py --flash-bin patched_flash.bin \
-    --out my_image.bin
 ```
 
 - `my_image.bin` 即 GUI「5. 刷入自选镜像」所用的文件；
 - 关于设备记录：`0x52FE0` 起 32 字节，含 PID 字符串和本机 MAC/标识。
-  **保留自己手柄的记录**更安全（尤其涉及蓝牙配对时）。
+  **保留自己手柄的记录**更安全（尤其涉及蓝牙配对时）；
+- 容器结构（目录、加密、CRC）见
+  [../reverse-engineering/flash-layout.md](../reverse-engineering/flash-layout.md)；
+- Vibe Coding Mode 路线图见 [vibe-coding-mode.md](vibe-coding-mode.md)。
 
 ## 4. 刷入与验证
 

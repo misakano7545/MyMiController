@@ -50,18 +50,23 @@ analyzeHeadless D:\proj GamepadProj -import G5605_boot_code.bin ^
 | 进入刷写模式函数 | `FUN_01e01d94`（见 [boot-mode-logic.md](boot-mode-logic.md)） |
 | 芯片 | BR23 / AC695N，pi32v2 内核 |
 
-## 4. 与闪存偏移的换算
+## 4. 与固件偏移的换算
 
-反编译地址 `0x01E0xxxx` 对应闪存偏移：
+反编译基址是 `0x01E000C0`，它对应 **`app.bin` 偏移 0**，而 `app.bin`
+在镜像内的位置是 `0x030E0`（见
+[flash-layout.md](flash-layout.md)）：
 
 ```
-flash_offset = decompiled_address - 0x01E000C0 + 0xC0
+app.bin 偏移   = decompiled_address - 0x01E000C0
+镜像内偏移     = 0x030E0 + (decompiled_address - 0x01E000C0)
 ```
 
-（因为入口 ENTRY=0x1E000C0 处的头 0xC0 字节是签名/头信息，实际执行代码
-紧随其后；用这种换算可在 hex 编辑器里定位任何函数。）
+例如 `FUN_01e01d94` 在 `app.bin` 偏移 `0x1CD4`，镜像内偏移 `0x4DB4`。
 
-例如 `FUN_01e01d94` 位于闪存偏移约 `0x1DD4`。
+> ⚠️ 镜像内那一段是**加密**的，直接改镜像文件无效。请先用
+> `python -m mico unpack firmware/G5605_boot_code.bin -o parts/`
+> 解出 `parts/app.bin`，改完再用 `python -m mico pack` 或
+> `python tools/build_firmware.py` 重新加密打包（后者会自动重算 CRC）。
 
 ## 5. 提示与技巧
 
@@ -75,3 +80,12 @@ flash_offset = decompiled_address - 0x01E000C0 + 0xC0
 ## 6. 脚本备份
 
 `decompiled/ExportDecomp.py` 即当时使用的导出脚本，可直接复用。
+`decompiled/functions.csv` 是由反编译产物生成的函数总表
+（地址 / `app.bin` 偏移 / 大小），查地址比翻 4000 行 C 快得多。
+
+## 7. 相关文档
+
+- 闪存布局 / 加密 / CRC：[flash-layout.md](flash-layout.md)
+- 刷写模式逻辑：[boot-mode-logic.md](boot-mode-logic.md)
+- 二次开发指南：[../development/README.md](../development/README.md)
+- Vibe Coding Mode 路线图：[../development/vibe-coding-mode.md](../development/vibe-coding-mode.md)
