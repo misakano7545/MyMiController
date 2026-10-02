@@ -1,5 +1,9 @@
 # MyMiController
 
+[![CI](https://github.com/misakano7545/MyMiController/actions/workflows/ci.yml/badge.svg)](https://github.com/misakano7545/MyMiController/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/misakano7545/MyMiController?color=2ea44f&label=release)](https://github.com/misakano7545/MyMiController/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 小米游戏手柄（G5605 / 芯片 BR23·AC695N）的**刷写工具 + 固件镜像 + 反编译源码**一体仓库。
 
 官方刷机软件又老又难用，本仓库提供一套经过实测的替代方案：
