@@ -47,7 +47,7 @@ analyzeHeadless D:\proj GamepadProj -import G5605_boot_code.bin ^
 | 代码区大小 | 0x53000（含 32 字节设备记录） |
 | 反编译函数总数 | 501（`FUN_01e00174` .. `FUN_01e40eea`） |
 | 入口地址 | `0x01E000C0`（代码起点，见 `isd_config.ini`） |
-| 进入刷写模式函数 | `FUN_01e01d94`（见 boot-mode-logic.md） |
+| 进入刷写模式函数 | `FUN_01e01d94`（见 [boot-mode-logic.md](boot-mode-logic.md)） |
 | 芯片 | BR23 / AC695N，pi32v2 内核 |
 
 ## 4. 与闪存偏移的换算

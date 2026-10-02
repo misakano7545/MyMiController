@@ -42,15 +42,16 @@
 2. 双击 `launch_gui.cmd`（会自动申请管理员权限）；
 3. 让手柄进入刷写模式（见下节）；
 4. 在窗口中点击：
-   - **1. 备份手柄固件** — 先把当前固件存下来（强烈建议第一步就做）；
-   - **2. 刷入项目固件** — 写入本仓库提供的固件；
-   - **3. 恢复备份** — 用它随时还原；
-   - **4. 刷入自选镜像** — 二次开发用；
-   - **5. 退出手柄刷写模式** — 让手柄重启回正常模式。
+   - **1. 检测手柄连接状态** — 确认电脑认得手柄（正常模式/刷写模式/未连接）；
+   - **2. 备份手柄固件** — 先把当前固件存下来（强烈建议第一步就做）；
+   - **3. 刷入项目固件** — 写入本仓库提供的固件；
+   - **4. 恢复备份** — 用它随时还原；
+   - **5. 刷入自选镜像** — 二次开发用；
+   - **6. 退出手柄刷写模式** — 让手柄重启回正常模式。
 
 **Linux 用户：** `./launch_gui.sh`（需要读写 `/dev/sg*` 的权限，通常要 root）。
 
-也可以在 [Releases](../../releases) 下载单文件版 `MyMiController.exe`（CI 自动构建），
+也可以在 [Releases](https://github.com/misakano7545/MyMiController/releases/latest) 下载单文件版 `MyMiController.exe`（CI 自动构建），
 无需安装 Python。
 
 ---
@@ -147,7 +148,7 @@ python -m mico reset                 # 手柄重启回正常模式
 1. 阅读 [docs/development/README.md](docs/development/README.md)（总览）；
 2. 改造 `firmware/G5605_boot_code.bin`（或反编译源码）；
 3. 用 `tools/build_image.py` 生成镜像；
-4. GUI 选「4. 刷入自选镜像」或 `python -m mico flash`；
+4. GUI 选「5. 刷入自选镜像」或 `python -m mico flash`；
 5. 不满意随时用备份还原。
 
 固件容器（`jl_isd.fw` / `update.ufw`）的解析与解包见 `tools/unpack_fw.py`。

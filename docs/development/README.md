@@ -13,9 +13,9 @@
         │  tools/build_image.py 生成镜像
         ▼
 刷写镜像 (firmware/*.bin)
-        │  GUI「4. 刷入自选镜像」或 python -m mico flash
+        │  GUI「5. 刷入自选镜像」或 python -m mico flash
         ▼
-手柄实机验证 → 不行就「3. 恢复备份」
+手柄实机验证 → 不行就「4. 恢复备份」
 ```
 
 ## 0. 环境
@@ -24,7 +24,7 @@
 - 可用的反编译环境（可选）：Ghidra + ghidra-jieli，见
   [../reverse-engineering/README.md](../reverse-engineering/README.md)；
 - 十六进制编辑器（如 HxD / ImHex / 010 Editor）或直接写 Python 脚本；
-- 一个完整的本机备份（GUI 第 1 项）。
+- 一个完整的本机备份（GUI 第 2 项）。
 
 ## 1. 找到入口：固件如何启动
 
@@ -84,17 +84,17 @@ python tools/build_image.py --flash-bin patched_flash.bin \
     --out my_image.bin
 ```
 
-- `my_image.bin` 即 GUI「4. 刷入自选镜像」所用的文件；
+- `my_image.bin` 即 GUI「5. 刷入自选镜像」所用的文件；
 - 关于设备记录：`0x52FE0` 起 32 字节，含 PID 字符串和本机 MAC/标识。
   **保留自己手柄的记录**更安全（尤其涉及蓝牙配对时）。
 
 ## 4. 刷入与验证
 
 1. 手柄进刷写模式（HOME+X+Y 约 3 秒）；
-2. GUI「4. 刷入自选镜像」或 `python -m mico flash my_image.bin`；
+2. GUI「5. 刷入自选镜像」或 `python -m mico flash my_image.bin`；
    - 工具会**擦除→写入→回读校验**，失败会明确报错；
 3. 完成后自动重启，观察手柄行为；
-4. 异常时用「3. 恢复备份」还原（也可选「5」仅重启）。
+4. 异常时用「4. 恢复备份」还原（也可选「6」仅重启）。
 
 ## 5. 关于校验（重要）
 
