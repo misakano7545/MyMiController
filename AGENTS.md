@@ -131,10 +131,17 @@ MyMiController-<版本>-windows-amd64.zip
 | `gui/flasher.py` | tkinter GUI（六步菜单：检测/备份/刷入/恢复/自选/重启） |
 | `mico/` | 零依赖核心库：transport（SCSI 传输）、device（BR23 引导与闪存读写）、crypto（杰理算法）、jlfw（.fw/.ufw 解析）、image（镜像布局）、cli（命令行） |
 | `firmware/` | 固件镜像与设备记录（发布物，勿随意改动） |
-| `decompiled/` | Ghidra 反编译产物与导出脚本 |
-| `docs/` | 逆向、刷写模式、二次开发文档 |
-| `tools/` | build_image / unpack_fw / build_exe |
+| `firmware/parts/` | 出厂固件的可编辑「零件」（app.bin 等，改这里） |
+| `decompiled/` | Ghidra 反编译产物、导出脚本与函数总表（functions.csv） |
+| `docs/` | 逆向、刷写模式、闪存布局、二次开发文档 |
+| `patches/` | 固件补丁脚本（`patch(ctx)`，见 build_firmware.py） |
+| `tools/` | build_firmware / build_image / unpack_fw / build_exe |
 | `tests/` | 单元测试（无需 pytest，`python tests/run_tests.py`） |
+
+**固件构建红线**：不修改零件时 `python tools/build_firmware.py` 的产物
+必须与 `firmware/G5605_boot_code.bin` **逐字节一致**（SHA256
+`FBDA6EE6…`）。CI 与本地都强制执行这条黄金校验；任何打破它的改动都
+视为破坏性变更。
 
 ## 四、常用命令
 
@@ -144,6 +151,12 @@ python -m mico info                  # 检测刷写模式设备
 python -m mico backup out.bin        # 备份
 python -m mico flash image.bin -y    # 刷入（含回读校验）
 python -m mico reset                 # 手柄重启回正常模式
-python tools/build_image.py --help   # 构建镜像
+python tools/build_image.py --help   # 构建镜像（旧式手工路径）
 python tools/unpack_fw.py --help     # 解包固件容器
+python tools/build_firmware.py --verify-only              # 校验零件==出厂镜像
+python tools/build_firmware.py --patch patches/example-hello.py --out build/x.bin
 ```
+
+**发布固件 BIN 时**：release.yml 会随刷机工具一并上传
+`MyMiController-<版本>-firmware-stock.bin` 与
+`MyMiController-<版本>-firmware-vibe-coding.bin`，命名规则同 2.4 节。
