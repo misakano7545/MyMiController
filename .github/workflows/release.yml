@@ -22,23 +22,54 @@ jobs:
       - name: Run tests
         run: python tests/run_tests.py
 
+      - name: Rebuild stock firmware (byte-identical check)
+        run: python tools/build_firmware.py --out build/firmware-stock.bin
+
+      - name: Build the Vibe Coding Mode firmware
+        run: |
+          python tools/build_firmware.py --patch patches/vibe-coding-mode.py `
+              --out build/firmware-vibe-coding.bin `
+              --full --record firmware/G5605_device_record.bin
+          python tools/build_firmware.py --patch patches/example-hello.py `
+              --out build/firmware-example.bin
+
       - name: Install PyInstaller
         run: python -m pip install pyinstaller
 
       - name: Build GUI executable
         run: python tools/build_exe.py
 
-      - name: Package artifact
+      - name: Package artifacts
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}".TrimStart("v")
           $zip = "MyMiController-$version-windows-amd64.zip"
           Compress-Archive -Path dist/MyMiController.exe -DestinationPath $zip
           "ASSET_NAME=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $fw = "MyMiController-$version-firmware-vibe-coding.bin"
+          Copy-Item build/firmware-vibe-coding-full.bin $fw
+          "FW_ASSET=$fw" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $fw2 = "MyMiController-$version-firmware-stock.bin"
+          Copy-Item build/firmware-stock.bin $fw2
+          "FW_STOCK_ASSET=$fw2" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
-          files: ${{ env.ASSET_NAME }}
+          files: |
+            ${{ env.ASSET_NAME }}
+            ${{ env.FW_ASSET }}
+            ${{ env.FW_STOCK_ASSET }}
           generate_release_notes: true
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-images
+          path: |
+            build/firmware-stock.bin
+            build/firmware-vibe-coding.bin
+            build/firmware-vibe-coding-full.bin
+            build/firmware-example.bin
+          if-no-files-found: error
