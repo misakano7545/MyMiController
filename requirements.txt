@@ -1,0 +1,6 @@
+# Runtime: none! mico and the GUI only use the Python standard library.
+#
+# The lines below are only needed for the optional tooling:
+#   pyinstaller   -> build a standalone executable (tools/build_exe.py)
+#
+pyinstaller>=6.0

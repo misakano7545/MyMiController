@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.9", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run test suite
+        run: python tests/run_tests.py
+
+      - name: Smoke-test the CLI
+        run: |
+          python -m mico --help
+          python -m mico info || true
+
+  verify-firmware:
+    name: Verify firmware image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Rebuild image and verify hashes
+        run: |
+          python - <<'PY'
+          import hashlib, os
+          boot = open("firmware/G5605_boot_code.bin", "rb").read()
+          image = open("firmware/G5605_V1.0_flash_image.bin", "rb").read()
+          record = open("firmware/G5605_device_record.bin", "rb").read()
+          assert boot[:0x52FE0] == image[:0x52FE0], "boot code != image head"
+          assert image[0x52FE0:0x52FE0+32] == record, "device record mismatch"
+          assert boot[0x52FE0:0x52FE0+32] == b"\xff"*32, "vendor slot should be FF"
+          print("device record:", record.hex())
+          print("image sha256:", hashlib.sha256(image).hexdigest())
+          PY
+
+  build-windows:
+    name: Build Windows executable
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: python -m pip install pyinstaller
+
+      - name: Build GUI executable
+        run: python tools/build_exe.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyMiController-windows
+          path: dist/MyMiController.exe
+          if-no-files-found: error
