@@ -350,3 +350,77 @@ def _inquiry(dev: SCSIDev) -> dict | None:
         }
     except Exception:
         return None
+
+
+def list_bootloader_disks() -> list[dict]:
+    """List bootloader mass-storage *candidates* without opening them.
+
+    On Windows this uses CIM only, so it works without administrator
+    rights -- useful for telling the user "device present but not
+    accessible (needs admin)". On Linux it returns every /dev/sg* node.
+    """
+    out = []
+    if os.name == "nt":
+        import subprocess
+        ps = ("Get-CimInstance Win32_DiskDrive | "
+              "Where-Object { $_.Model -like '*UBOOT*' -or $_.Model -like '*BR2*' } | "
+              "ForEach-Object { $_.DeviceID + '|' + $_.Model }")
+        try:
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                capture_output=True, text=True, timeout=15,
+            )
+            for line in proc.stdout.splitlines():
+                line = line.strip()
+                if not line or "|" not in line:
+                    continue
+                device_id, model = line.split("|", 1)
+                device_id = device_id.strip()
+                if device_id.startswith("\\\\.\\"):
+                    out.append({"path": device_id, "name": model.strip()})
+        except Exception:
+            pass
+    else:
+        import glob
+        for node in sorted(glob.glob("/dev/sg*")):
+            out.append({"path": node, "name": node})
+    return out
+
+
+def find_normal_mode_gamepads() -> list[dict]:
+    """Return connected gamepads in normal (non-flashing) mode.
+
+    Only used for user-facing status messages ("gamepad connected, hold
+    HOME+X+Y to enter flashing mode").
+    """
+    out = []
+    if os.name == "nt":
+        import subprocess
+        ps = ("Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | "
+              "Where-Object { $_.InstanceId -match 'VID_045E&PID_028E' } | "
+              "Select-Object -ExpandProperty FriendlyName")
+        try:
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                capture_output=True, text=True, timeout=15,
+            )
+            names = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+            if names:
+                best = [n for n in names if "xbox" in n.lower() or "手柄" in n]
+                out.append({"path": "usb", "name": (best or names)[0]})
+        except Exception:
+            pass
+    else:
+        import glob
+        for vendor_file in sorted(glob.glob("/sys/bus/usb/devices/*/idVendor")):
+            directory = os.path.dirname(vendor_file)
+            try:
+                with open(vendor_file) as fh:
+                    vid = fh.read().strip().lower()
+                with open(os.path.join(directory, "idProduct")) as fh:
+                    pid = fh.read().strip().lower()
+            except OSError:
+                continue
+            if vid == "045e" and pid == "028e":
+                out.append({"path": directory, "name": "Xbox 360 手柄"})
+    return out

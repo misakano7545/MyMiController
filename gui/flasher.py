@@ -1,6 +1,7 @@
 """mico GUI - a minimal tkinter front-end for the MyMiController flasher.
 
 Features:
+  * Detect gamepad connection (normal mode / flashing mode / not found)
   * Back up firmware  (read full 1 MB flash -> .bin file)
   * Flash shipped firmware  (verified image in firmware/)
   * Restore a backup  (any full 1 MB dump)
@@ -26,7 +27,12 @@ from tkinter import filedialog, messagebox, ttk
 if __package__ in (None, ""):  # allow running as a plain script
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mico.device import UBOOTDevice, DeviceNotFoundError
+from mico.device import (
+    UBOOTDevice,
+    DeviceNotFoundError,
+    find_normal_mode_gamepads,
+    list_bootloader_disks,
+)
 from mico.image import FLASH_SIZE
 
 APP_TITLE = "MyMiController - 小米游戏手柄刷写工具"
@@ -94,18 +100,26 @@ class FlashApp:
         buttons = ttk.Frame(outer)
         buttons.pack(fill="x")
 
-        self.btn_backup = ttk.Button(buttons, text="1. 备份手柄固件", command=self.on_backup)
-        self.btn_flash = ttk.Button(buttons, text="2. 刷入项目固件", command=self.on_flash_default)
-        self.btn_restore = ttk.Button(buttons, text="3. 恢复备份", command=self.on_restore)
-        self.btn_custom = ttk.Button(buttons, text="4. 刷入自选镜像…", command=self.on_flash_custom)
-        self.btn_reset = ttk.Button(buttons, text="5. 退出手柄刷写模式", command=self.on_reset)
+        self.btn_detect = ttk.Button(buttons, text="1. 检测手柄连接状态", command=self.on_detect)
+        self.btn_backup = ttk.Button(buttons, text="2. 备份手柄固件", command=self.on_backup)
+        self.btn_flash = ttk.Button(buttons, text="3. 刷入项目固件", command=self.on_flash_default)
+        self.btn_restore = ttk.Button(buttons, text="4. 恢复备份", command=self.on_restore)
+        self.btn_custom = ttk.Button(buttons, text="5. 刷入自选镜像…", command=self.on_flash_custom)
+        self.btn_reset = ttk.Button(buttons, text="6. 退出手柄刷写模式", command=self.on_reset)
 
         for i, button in enumerate(
-            [self.btn_backup, self.btn_flash, self.btn_restore, self.btn_custom, self.btn_reset]
+            [self.btn_detect, self.btn_backup, self.btn_flash,
+             self.btn_restore, self.btn_custom, self.btn_reset]
         ):
             button.grid(row=i // 2, column=i % 2, sticky="ew", padx=3, pady=3)
         buttons.columnconfigure(0, weight=1)
         buttons.columnconfigure(1, weight=1)
+
+        status_box = ttk.Frame(outer)
+        status_box.pack(fill="x", pady=(10, 0))
+        ttk.Label(status_box, text="当前状态：", foreground="#555").pack(side="left")
+        self.conn_state = ttk.Label(status_box, text="尚未检测", foreground="#777")
+        self.conn_state.pack(side="left")
 
         help_box = ttk.LabelFrame(outer, text="如何进入刷写模式", padding=8)
         help_box.pack(fill="x", pady=(12, 8))
@@ -114,9 +128,9 @@ class FlashApp:
             justify="left",
             text=(
                 "1. 用数据线把手柄接到电脑（1 号灯 / 有线模式）\n"
-                "2. 同时按住 HOME + X + Y 三个键约 3 秒\n"
-                "3. 指示灯熄灭、电脑出现 “BR23 UBOOT1.00” 即为成功\n"
-                "4. 成功后回到本窗口，点击上面的按钮"
+                "2. 先点「1. 检测手柄连接状态」确认电脑认得手柄\n"
+                "3. 再按住 HOME + X + Y 三个键约 3 秒进入刷写模式\n"
+                "4. 指示灯熄灭、检测显示 “BR23 UBOOT1.00” 后即可刷写"
             ),
         ).pack(anchor="w")
 
@@ -163,6 +177,9 @@ class FlashApp:
                 elif kind == "done":
                     result, exc, detail = payload
                     self._finish_operation(result, exc, detail)
+                elif kind == "state":
+                    text, color = payload
+                    self.conn_state.configure(text=text, foreground=color)
         except queue.Empty:
             pass
         self.root.after(80, self._poll_queue)
@@ -207,12 +224,65 @@ class FlashApp:
 
     def _set_buttons(self, enabled: bool):
         state = "normal" if enabled else "disabled"
-        for button in (self.btn_backup, self.btn_flash, self.btn_restore,
-                       self.btn_custom, self.btn_reset):
+        for button in (self.btn_detect, self.btn_backup, self.btn_flash,
+                       self.btn_restore, self.btn_custom, self.btn_reset):
             button.configure(state=state)
 
     # ------------------------------------------------------------------
     # operations
+
+    def on_detect(self):
+        """Step 1: figure out what mode the gamepad is currently in."""
+        self._log("")
+        self._log("=== 检测手柄连接状态 ===")
+
+        def show_state(text, color):
+            self.msg_queue.put(("state", (text, color)))
+
+        def worker(on_log, on_progress):
+            on_log("正在检查 USB 设备…")
+            boot_disks = list_bootloader_disks()
+            if boot_disks:
+                device = boot_disks[0]
+                on_log("发现刷写模式设备: %s" % device["name"])
+                show_state("已进入刷写模式（%s）" % device["name"], "#0a7d28")
+                on_log("可以执行第 2~6 项操作。")
+                return "已检测到刷写模式手柄：\n%s" % device["name"]
+
+            normal = find_normal_mode_gamepads()
+            if normal:
+                on_log("发现正常模式手柄: %s" % normal[0]["name"])
+                on_log("请按住 HOME + X + Y 约 3 秒进入刷写模式。")
+                show_state("手柄已连接，但未进入刷写模式", "#b06a00")
+                return (
+                    "手柄已连接电脑（正常模式）。\n\n"
+                    "下一步：按住 HOME + X + Y 约 3 秒进入刷写模式，\n"
+                    "然后再次点击「1. 检测手柄连接状态」。"
+                )
+
+            on_log("未发现手柄（正常模式或刷写模式都没有）。")
+            show_state("未检测到手柄", "#b00020")
+            return (
+                "没有检测到手柄。\n\n"
+                "请确认：\n"
+                "  · 数据线已连接到电脑（能传数据的线）\n"
+                "  · 手柄已开机（1 号灯 / 有线模式）\n"
+                "  · 正常模式下重新拔插一次数据线\n\n"
+                "然后再次点击「1. 检测手柄连接状态」。"
+            )
+
+        def finished(result, exc, detail):
+            if exc is not None:
+                self.msg_queue.put(("state", ("检测失败", "#b00020")))
+            self.msg_queue.put(("done", (result, exc, detail)))
+
+        if self.busy:
+            messagebox.showinfo(APP_TITLE, "已有操作在进行中，请稍候。")
+            return
+        self.busy = True
+        self._set_buttons(False)
+        self.progress["value"] = 0
+        FlashWorker(worker, finished, self._log, self._progress).start()
 
     def _connect(self, on_log):
         on_log("正在查找刷写设备…")
