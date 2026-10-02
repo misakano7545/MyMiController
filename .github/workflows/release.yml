@@ -28,8 +28,17 @@ jobs:
       - name: Build GUI executable
         run: python tools/build_exe.py
 
+      - name: Package artifact
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $zip = "MyMiController-$version-windows-amd64.zip"
+          Compress-Archive -Path dist/MyMiController.exe -DestinationPath $zip
+          "ASSET_NAME=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/MyMiController.exe
+          name: ${{ github.ref_name }}
+          files: ${{ env.ASSET_NAME }}
           generate_release_notes: true
