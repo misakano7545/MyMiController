@@ -17,6 +17,8 @@ from mico.image import (  # noqa: E402
     DEVICE_RECORD_SIZE,
     FLASH_SIZE,
     IMAGE_SIZE,
+    SETTINGS_OFFSET,
+    SETTINGS_SIZE,
     build_full_image,
     split_full_image,
 )
@@ -37,6 +39,50 @@ def test_image_roundtrip():
     back_boot, back_record = split_full_image(image)
     assert back_boot[: len(boot)] == boot
     assert back_record == record
+
+
+def test_settings_area_bounds():
+    assert SETTINGS_OFFSET == 0xF6000
+    assert SETTINGS_OFFSET + SETTINGS_SIZE == FLASH_SIZE
+    assert SETTINGS_SIZE > 0
+
+
+def test_build_firmware_settings_merge():
+    import importlib.util
+    import tempfile
+
+    spec = importlib.util.spec_from_file_location(
+        "build_firmware_settings_test",
+        os.path.join(ROOT, "tools", "build_firmware.py"),
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    settings = bytes(i % 251 for i in range(SETTINGS_SIZE))
+    full = bytearray(b"\xFF" * FLASH_SIZE)
+    non_ff = module.merge_settings(full, settings)
+    assert non_ff == SETTINGS_SIZE
+    assert full[SETTINGS_OFFSET:] == settings
+    assert full[:SETTINGS_OFFSET] == b"\xFF" * SETTINGS_OFFSET
+
+    with tempfile.TemporaryDirectory() as tmp:
+        full_path = os.path.join(tmp, "backup.bin")
+        bare_path = os.path.join(tmp, "settings.bin")
+        bad_path = os.path.join(tmp, "bad.bin")
+        with open(full_path, "wb") as fh:
+            fh.write(full)
+        with open(bare_path, "wb") as fh:
+            fh.write(settings)
+        with open(bad_path, "wb") as fh:
+            fh.write(b"x" * 16)
+        assert module.load_settings(full_path) == settings
+        assert module.load_settings(bare_path) == settings
+        try:
+            module.load_settings(bad_path)
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError("load_settings accepted a wrong-size file")
 
 
 def test_shipped_image_matches_boot_code():

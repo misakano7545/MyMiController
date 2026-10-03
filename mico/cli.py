@@ -19,7 +19,7 @@ import sys
 import time
 
 from .device import UBOOTDevice, DeviceNotFoundError
-from .image import FLASH_SIZE
+from .image import FLASH_SIZE, SETTINGS_OFFSET
 from .jlfs import (
     IMAGE_SIZE,
     JlfImage,
@@ -92,7 +92,8 @@ def cmd_flash(args):
     # untouched, which is what keeps calibration and mode settings alive.
     # A full 1MB image wipes them unless it was built with the live
     # settings -- warn when its tail is blank (the common accident).
-    if len(data) > IMAGE_SIZE and all(b == 0xFF for b in data[0xF6000:0xF601C]):
+    if (len(data) > IMAGE_SIZE
+            and all(b == 0xFF for b in data[SETTINGS_OFFSET:SETTINGS_OFFSET + 0x1C])):
         print("警告: 镜像超过 0x53000，且 0xF6000 之后的设置区是空白。")
         print("      刷入会清掉手柄的校准/模式设置（可能导致灯效异常）。")
         print("      建议改用只含固件区的镜像，或先备份再刷。")

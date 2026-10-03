@@ -21,6 +21,12 @@ and can change any part of the image before it is packed:
 
 Every patch is re-validated by the container CRCs, and then by the
 golden-image check when nothing was modified.
+
+`--full` additionally writes a 1 MB flash image.  Its settings area
+(0xF6000..0x100000) is blank (0xFF) unless `--settings` points at a
+full backup or a bare settings blob; flashing it without settings
+wipes the gamepad calibration / mode settings.  Prefer flashing the
+0x53000 image, or merge the live settings with `--settings backup.bin`.
 """
 
 from __future__ import annotations
@@ -42,7 +48,13 @@ from mico.jlfs import (  # noqa: E402
     extract_template,
     IMAGE_SIZE,
 )
-from mico.image import DEVICE_RECORD_OFFSET, DEVICE_RECORD_SIZE, FLASH_SIZE  # noqa: E402
+from mico.image import (  # noqa: E402
+    DEVICE_RECORD_OFFSET,
+    DEVICE_RECORD_SIZE,
+    FLASH_SIZE,
+    SETTINGS_OFFSET,
+    SETTINGS_SIZE,
+)
 
 PARTS_DIR = os.path.join(ROOT, "firmware", "parts")
 STOCK_REF = os.path.join(ROOT, "firmware", "G5605_boot_code.bin")
@@ -115,6 +127,31 @@ def verify_parts() -> list:
     return problems
 
 
+def load_settings(path: str) -> bytes:
+    """Return the settings area (0xF6000..) from a backup or blob.
+
+    Accepts either a full 1 MB flash backup (the area is sliced out) or
+    a bare SETTINGS_SIZE blob.
+    """
+    with open(path, "rb") as fh:
+        data = fh.read()
+    if len(data) == FLASH_SIZE:
+        return data[SETTINGS_OFFSET:]
+    if len(data) == SETTINGS_SIZE:
+        return data
+    raise SystemExit(
+        "设置区来源必须是 %d 字节的整片备份，或 %d 字节的设置块（实际 %d 字节）"
+        % (FLASH_SIZE, SETTINGS_SIZE, len(data)))
+
+
+def merge_settings(full: bytearray, settings: bytes) -> int:
+    """Copy a settings area into a full image; returns non-FF byte count."""
+    if len(settings) != SETTINGS_SIZE:
+        raise ValueError("settings must be exactly %d bytes" % SETTINGS_SIZE)
+    full[SETTINGS_OFFSET:SETTINGS_OFFSET + SETTINGS_SIZE] = settings
+    return sum(1 for byte in settings if byte != 0xFF)
+
+
 def load_patch(path: str) -> PatchContext:
     ctx = PatchContext()
     module = runpy.run_path(path)
@@ -136,6 +173,10 @@ def main(argv=None) -> int:
     parser.add_argument("--full", action="store_true",
                         help="同时输出 1MB 完整镜像（含设备记录）")
     parser.add_argument("--record", help="设备记录文件（32 字节）")
+    parser.add_argument("--settings",
+                        help="整片备份（1MB）或设置块（%d 字节）："
+                             "合并设置区到完整镜像，避免刷掉校准/模式设置"
+                             % SETTINGS_SIZE)
     parser.add_argument("--verify-only", action="store_true",
                         help="只做校验，不构建")
     args = parser.parse_args(argv)
@@ -194,6 +235,17 @@ def main(argv=None) -> int:
             if len(record) != DEVICE_RECORD_SIZE:
                 raise SystemExit("设备记录必须是 %d 字节" % DEVICE_RECORD_SIZE)
             full[DEVICE_RECORD_OFFSET:DEVICE_RECORD_OFFSET + DEVICE_RECORD_SIZE] = record
+        if args.settings:
+            settings = load_settings(args.settings)
+            non_ff = merge_settings(full, settings)
+            print("已合并设置区: %s（非 FF 字节 %d）" % (args.settings, non_ff))
+            if non_ff < 64:
+                print("警告: 设置区几乎全空（非 FF 仅 %d 字节），请确认来源文件。" % non_ff)
+        else:
+            print("警告: 完整镜像的设置区（0x%X 起）为空白 FF。" % SETTINGS_OFFSET)
+            print("      刷入会清掉校准/模式设置，可能导致灯效异常。")
+            print("      优先刷小镜像（同一次构建写出的 %d 字节版本）；" % IMAGE_SIZE)
+            print("      或将本机备份用 --settings 传入，合并设置区后再刷。")
         full_out = os.path.splitext(args.out)[0] + "-full.bin"
         with open(full_out, "wb") as fh:
             fh.write(full)

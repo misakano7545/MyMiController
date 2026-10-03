@@ -7,13 +7,20 @@ The 1 MB SPI-NOR flash is laid out as follows:
                          bytes at 0x52FE0 are the device record slot,
                          filled with FF in the vendor package)
     0x53000 .. 0xF6000   unused / 0xFF
-    0xF6000 .. 0xFFFFF   VM/config area + 8-byte end marker at 0xFFF40
+    0xF6000 .. 0xFFFFF   VM/config area (SETTINGS_OFFSET..) + 8-byte end
+                         marker at 0xFFF40
 
 The factory jig writes a 32-byte device record at 0x52FE0 containing the
 PID ("G5605_V1.0" + MAC etc.). Our shipped image
 `firmware/G5605_V1.0_flash_image.bin` is the vendor flash.bin with that
 record filled in, so flashing it restores the gamepad exactly as observed
 on a factory unit.
+
+Flashing only the first 0x53000 bytes leaves the settings area untouched
+(calibration and mode settings survive).  A full 1 MB image overwrites
+it: build those with ``--settings`` / ``merge_settings()`` so they carry
+the live settings area, otherwise the gamepad loses its calibration and
+develops LED / mode glitches.
 """
 
 from __future__ import annotations
@@ -24,6 +31,8 @@ __all__ = [
     "BOOT_CODE_SIZE",
     "DEVICE_RECORD_OFFSET",
     "DEVICE_RECORD_SIZE",
+    "SETTINGS_OFFSET",
+    "SETTINGS_SIZE",
     "build_full_image",
     "split_full_image",
 ]
@@ -33,6 +42,8 @@ IMAGE_SIZE = 0x53000              # firmware image region (vendor flash.bin size
 BOOT_CODE_SIZE = IMAGE_SIZE       # alias: the vendor calls this "flash.bin"
 DEVICE_RECORD_OFFSET = 0x52FE0
 DEVICE_RECORD_SIZE = 32
+SETTINGS_OFFSET = 0xF6000         # start of the VM/config (settings) area
+SETTINGS_SIZE = FLASH_SIZE - SETTINGS_OFFSET
 
 
 def build_full_image(boot_code: bytes, device_record: bytes = b"",
