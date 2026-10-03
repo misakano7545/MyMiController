@@ -87,6 +87,16 @@ def cmd_flash(args):
     if len(data) > FLASH_SIZE:
         print("错误: 镜像超过 1MB"); return 2
 
+    # Only the first 0x53000 bytes are firmware.  A shorter image leaves
+    # the VM/settings area (0xF6000..) and the end marker (0xFFF40)
+    # untouched, which is what keeps calibration and mode settings alive.
+    # A full 1MB image wipes them unless it was built with the live
+    # settings -- warn when its tail is blank (the common accident).
+    if len(data) > IMAGE_SIZE and all(b == 0xFF for b in data[0xF6000:0xF601C]):
+        print("警告: 镜像超过 0x53000，且 0xF6000 之后的设置区是空白。")
+        print("      刷入会清掉手柄的校准/模式设置（可能导致灯效异常）。")
+        print("      建议改用只含固件区的镜像，或先备份再刷。")
+
     print("镜像: %s (%d 字节)" % (args.file, len(data)))
     print("SHA256: %s" % hashlib.sha256(data).hexdigest().upper())
     if not args.yes:

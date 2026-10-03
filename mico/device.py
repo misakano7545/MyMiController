@@ -270,6 +270,13 @@ class UBOOTDevice:
             self.dev.close()
             self.dev = None
 
+    def __enter__(self) -> "UBOOTDevice":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        self.close()
+        return False
+
 
 def _dirty_blocks(bad: list[int], block: int = 0x1000) -> list[int]:
     seen = []
@@ -306,16 +313,9 @@ def _find_devices() -> list[dict]:
                 dev.close()
         return out
 
-    # Windows: enumerate disk drives via CIM, probing candidates.
-    try:
-        proc = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-             "(Get-CimInstance Win32_DiskDrive | Where-Object {$_.Model -like '*UBOOT*' -or $_.Model -like '*BR2*'}).DeviceID"],
-            capture_output=True, text=True, timeout=15,
-        )
-        ids = [line.strip() for line in proc.stdout.splitlines() if line.strip().startswith("\\\\.\\")]
-    except Exception:
-        ids = []
+    # Windows: probe the raw physical-drive channels directly. This avoids
+    # depending on WMI/PowerShell quoting and works the same for every user.
+    ids = ["\\\\.\\PHYSICALDRIVE%d" % n for n in range(16)]
 
     for device_id in ids:
         try:
