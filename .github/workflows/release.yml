@@ -46,8 +46,11 @@ jobs:
           $zip = "MyMiController-$version-windows-amd64.zip"
           Compress-Archive -Path dist/MyMiController.exe -DestinationPath $zip
           "ASSET_NAME=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          # 上架 0x53000 小镜像：只覆盖固件区，0xF6000 起的校准/设置区
+          # 不受影响。全片镜像必须由用户用自己的备份 --settings 合并后
+          # 自行构建，避免直接刷入空白设置区造成灯效/模式异常。
           $fw = "MyMiController-$version-firmware-vibe-coding.bin"
-          Copy-Item build/firmware-vibe-coding-full.bin $fw
+          Copy-Item build/firmware-vibe-coding.bin $fw
           "FW_ASSET=$fw" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $fw2 = "MyMiController-$version-firmware-stock.bin"
           Copy-Item build/firmware-stock.bin $fw2

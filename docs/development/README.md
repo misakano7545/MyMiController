@@ -85,9 +85,10 @@ CRC（`app_area_head` 的校验覆盖整个应用区）。
 3. 写一个补丁脚本改 `ctx.app`；
 4. 用 `tools/build_firmware.py --patch ...` 构建、刷入测试。
 
-示例：想把「进刷写模式需要 3 秒」改成别的时长，就找
-`docs/reverse-engineering/boot-mode-logic.md` 里 `0x84` 那个比较常量，
-写一个对应的补丁脚本。
+示例：想把「进刷写模式需要 3 秒」改成别的时长，就找触发链里的计时
+阈值 `0x85`（`0x01e106fc` 的 `jae r0,#0x85`）；想改成别的组合键，还要
+同步改按键计数门槛（`0x01e106d6` 的 `jne r6,#0x3`）——两者都记录在
+`docs/reverse-engineering/boot-mode-logic.md`，照着写一个补丁脚本即可。
 
 现成例子见 `patches/`：
 - `example-hello.py` —— 最小改动演示（改一段日志字符串）；

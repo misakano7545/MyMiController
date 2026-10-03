@@ -160,3 +160,6 @@ python tools/build_firmware.py --patch patches/example-hello.py --out build/x.bi
 **发布固件 BIN 时**：release.yml 会随刷机工具一并上传
 `MyMiController-<版本>-firmware-stock.bin` 与
 `MyMiController-<版本>-firmware-vibe-coding.bin`，命名规则同 2.4 节。
+上架的 vibe-coding BIN 为 `0x53000` 小镜像（只覆盖固件区，`0xF6000`
+起的校准/设置区不受影响）；需要 1MB 全片镜像时，用
+`tools/build_firmware.py --full --settings <本机备份>` 自行合并设置区。

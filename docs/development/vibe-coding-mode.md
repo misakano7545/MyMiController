@@ -61,6 +61,10 @@ python tools/build_firmware.py --patch patches/vibe-coding-mode.py \
    约 3 秒）。官方固件只用 Mode+A / Mode+X / Mode+Y，Mode+B 是空档，
    不影响其他模式；组合键解剖、插入点与 B 键位探针见
    [mode-switch-logic.md](../reverse-engineering/mode-switch-logic.md)。
+   注意：刷写组合的固件判定要求**按键计数恰好为 3**（见
+   [boot-mode-logic.md](../reverse-engineering/boot-mode-logic.md)），
+   做 HOME+B 的正式补丁时必须同步改这个计数门槛；B 键位在探针确认
+   之前，不要写进正式固件。
 
 定位建议：在 `decomp_all.c` 里搜 `0x21407` 附近的描述符引用、搜
 USB 报告组装函数（写端点 FIFO 的位置），以及按键位图（文档记录的
@@ -85,9 +89,10 @@ def patch(ctx):
 - **回读校验**：`python -m mico flash --file build/vibe.bin` 会写入后
   回读比对，失败立即报错；
 - **随时回退**：备份是 1 MiB 全量，GUI 第 4 项一键还原；
-- **刷写模式**：HOME+X+Y 约 3 秒（见
-  [boot-mode-logic.md](../reverse-engineering/boot-mode-logic.md)），
-  与固件内容无关，任何情况下都能再进。
+- **刷写模式**：HOME+X+Y 按住约 3 秒，期间不要碰摇杆/扳机/其他键
+  （固件要求按键计数恰好为 3，见
+  [boot-mode-logic.md](../reverse-engineering/boot-mode-logic.md)）；
+  进入成功与否看电脑是否出现 `BR23 UBOOT1.00`，灯灭不算数。
 
 ## 5. 风险与边界
 
