@@ -55,6 +55,7 @@ from mico.image import (  # noqa: E402
     SETTINGS_OFFSET,
     SETTINGS_SIZE,
 )
+from mico.console import init_console  # noqa: E402
 
 PARTS_DIR = os.path.join(ROOT, "firmware", "parts")
 STOCK_REF = os.path.join(ROOT, "firmware", "G5605_boot_code.bin")
@@ -163,6 +164,7 @@ def load_patch(path: str) -> PatchContext:
 
 
 def main(argv=None) -> int:
+    init_console()
     parser = argparse.ArgumentParser(description="构建可刷写固件镜像")
     parser.add_argument("--parts", default=PARTS_DIR,
                         help="零件目录（默认 firmware/parts）")

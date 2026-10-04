@@ -30,6 +30,7 @@ from mico.image import (  # noqa: E402
     build_full_image,
     split_full_image,
 )
+from mico.console import init_console  # noqa: E402
 
 
 def _load(path):
@@ -38,6 +39,7 @@ def _load(path):
 
 
 def main():
+    init_console()
     parser = argparse.ArgumentParser(description="构建 G5605 刷写镜像")
     parser.add_argument("--flash-bin", help="vendor flash.bin (boot code)")
     parser.add_argument("--backup", help="full 1MB backup (record source / verify)")

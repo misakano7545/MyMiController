@@ -14,9 +14,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mico.jlfw import load  # noqa: E402
+from mico.console import init_console  # noqa: E402
 
 
 def main():
+    init_console()
     parser = argparse.ArgumentParser(description="解包 JieLi .fw/.ufw 固件包")
     parser.add_argument("file", help=".fw 或 .ufw 文件")
     parser.add_argument("-o", "--out", default="unpacked", help="输出目录")

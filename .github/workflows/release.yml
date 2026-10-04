@@ -12,6 +12,11 @@ jobs:
   release:
     name: Build and publish release
     runs-on: windows-latest
+    env:
+      # 中文日志在英文 Windows 控制台（cp1252）上会抛 UnicodeEncodeError，
+      # 强制 Python 用 UTF-8 输出，避免构建/发布因日志编码失败。
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     steps:
       - uses: actions/checkout@v4
 

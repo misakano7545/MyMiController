@@ -27,6 +27,7 @@ from tkinter import filedialog, messagebox, ttk
 if __package__ in (None, ""):  # allow running as a plain script
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from mico.console import init_console
 from mico.device import (
     UBOOTDevice,
     DeviceNotFoundError,
@@ -400,6 +401,7 @@ def _fmt_size(num):
 
 
 def main():
+    init_console()
     root = tk.Tk()
     try:
         root.iconbitmap(default="")

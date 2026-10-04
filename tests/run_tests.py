@@ -7,8 +7,11 @@ import traceback
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
+from mico.console import init_console  # noqa: E402
+
 
 def main() -> int:
+    init_console()
     failures = 0
     ran = 0
     for filename in sorted(os.listdir(HERE)):

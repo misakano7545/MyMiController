@@ -18,6 +18,7 @@ import os
 import sys
 import time
 
+from .console import init_console
 from .device import UBOOTDevice, DeviceNotFoundError
 from .image import FLASH_SIZE, SETTINGS_OFFSET
 from .jlfs import (
@@ -173,6 +174,7 @@ def cmd_reset(args):
 
 
 def main(argv=None) -> int:
+    init_console()
     parser = argparse.ArgumentParser(prog="mico", description="小米游戏手柄 (BR23) 刷写工具")
     parser.add_argument("--timeout", type=float, default=30.0, help="等待设备出现的秒数")
     sub = parser.add_subparsers(dest="command", required=True)

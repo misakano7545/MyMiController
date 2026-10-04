@@ -10,6 +10,10 @@ jobs:
   test:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    env:
+      # 中文日志在英文 Windows 控制台（cp1252）上会抛 UnicodeEncodeError。
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     strategy:
       fail-fast: false
       matrix:
